@@ -17,10 +17,12 @@ Q_6_40 <- as.matrix(Q_matrix[1:40, 20:25]) %>%
 rm(Q_matrix)
 
 # 可调参数 -------------------------------------------------------------------
-file_name <- "Q_3_10_high_0.2_"
-Q_matrix <- Q_3_10
+####
+file_name <- "Q_6_20_high_0.2_"
+Q_matrix <- Q_6_20
 item_quality <- "high"
 abberant_ratio <- 0.2
+####
 
 zeta_low <- 3
 zeta_high <- 4.5
@@ -267,6 +269,26 @@ get_dif_type_data <- function(data_type, each_num) {
            rbind(get_dif_type_data(data_type, each_num)))
 }
 
+#线性归一化函数
+line_normalization <- function(data, max_vector, min_vector) {
+#   if(missing(max_vector)){max_vector <- apply(data, 2, max)}
+#   if(missing(min_vector)){min_vector <- apply(data, 2, min)}
+#   for (c in 1:ncol(data)) {
+#     data[, c] <- (data[, c] - min_vector[c]) / (max_vector[c] - min_vector[c])
+#   }
+#   return(list(res = data, max_vector = max_vector, min_vector = min_vector))
+}
+
+#标准化函数
+normalization <- function(data, mean_vector, sd_vector) {
+  if(missing(mean_vector)){mean_vector <- apply(data, 2, mean)}
+  if(missing(sd_vector)){sd_vector <- apply(data, 2, sd)}
+  for (c in 1:ncol(data)) {
+    data[, c] <- (data[, c] - mean_vector[c]) / sd_vector[c]
+  }
+  return(list(res = data, mean_vector = mean_vector, sd_vector = sd_vector))
+}
+
 # 主程序 ---------------------------------------------------------------------
 #↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 #↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓改一次条件运行以下一次↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -274,7 +296,7 @@ get_dif_type_data <- function(data_type, each_num) {
 #得到所有组合类别
 output_target <- target(all_attr_master(attribute_num), behavior_type_vector)
 #重复50次得到50个数据
-for (seed in 1:2) {
+for (seed in 1:1) {
   set.seed(seed)
   
   #item_parameter
@@ -283,8 +305,10 @@ for (seed in 1:2) {
   #train
   train_data <- get_dif_type_data(behavior_type_vector, train_each_num)
   #train_x
-  train_x_T <- dplyr::select(train_data, contains("Y") | contains("RT")) %>% 
-    as.matrix()
+  x_T_normalization <- dplyr::select(train_data, contains("Y") |
+                                       contains("RT") | contains("total")) %>%
+    normalization()
+  train_x_T <- x_T_normalization$res %>% as.matrix()
   train_x_F <- dplyr::select(train_data, contains("Y")) %>% as.matrix()
   #train_y
   target_index_train <- match(train_data$target, output_target$target)
@@ -308,8 +332,11 @@ for (seed in 1:2) {
     #获取作答类型索引
     index <- grep(test_type, test_data[["target"]])
     #test_x
-    test_x_T <- dplyr::select(test_data, contains("Y") | contains("RT")) %>% 
-      .[index, ] %>% as.matrix()
+    test_x_T <- dplyr::select(test_data, contains("Y") | contains("RT") |
+                                contains("total")) %>%
+      .[index, ] %>% normalization(x_T_normalization$mean_vector,
+                                   x_T_normalization$sd_vector) %>%
+      .$res %>% as.matrix()
     test_x_F <- dplyr::select(test_data, contains("Y")) %>% .[index, ] %>% 
       as.matrix()
     #test_y
